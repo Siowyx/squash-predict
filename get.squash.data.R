@@ -9,13 +9,15 @@
 ## build in some delay time, and scrape recent and 
 ## scrape most important events first in case we can rate limited
 library(XML)
+library(xml2)
+library(rvest)
 
 
 ## get list of all completed tournaments and save into a rds file
 tournaments.url = 'https://www.psaworldtour.com/tournaments'
-d = scan(tournaments.url, what='', sep='\n')
+html = scan(tournaments.url, what='', sep='\n')
 filename = paste0('rawdata/', 'tournaments', '.rds')
-saveRDS(d, file=filename)
+saveRDS(html, file=filename)
 
 
 ## get links to tournaments
@@ -28,10 +30,10 @@ tournament.links <- raw.tournaments[grepl('href=\"https://www.psaworldtour.com/t
 for (i in 1:3) {
   cat(i, "\n")
   url <- gsub(".*\"(.+)\".*", "\\1", tournament.links[i])
-  d = scan(url, what='', sep='\n')
+  html = scan(url, what='', sep='\n')
   filename = gsub("https://www.psaworldtour.com/tournament/(.+)/", "\\1", url)
-  filename = paste0('rawdata/tournaments/', filename, '.rds')
-  saveRDS(d, file=filename)
+  saveRDS(html, file=paste0('rawdata/tournaments/rds/', filename, '.rds'))
+  writeLines(html, paste0('rawdata/tournaments/html/', filename, '.html'))
   
   ## put in a short pause so the site doesn't hate us
   Sys.sleep(runif(1, min=.5, max=5)) 
@@ -46,10 +48,10 @@ round_names <- c("Final", "Semifinal", "Quarterfinal", "Round of 16", "Round of 
 # a function to extract relevant data from a file into a data frame
 extractResults <- function(filename, df) {
   
-  print(paste("extracting from", filename))
+  print(paste("extracting data for", filename))
   
   # load from rds file
-  file <- readRDS(paste0("rawdata/tournaments/", filename))
+  file <- readRDS(paste0("rawdata/tournaments/rds/", filename, ".rds"))
   
   # tournament name
   name <- file[grepl('h1 style=\"font-size: 3em;\"', file)]
@@ -93,12 +95,17 @@ extractResults <- function(filename, df) {
   table_i <- 0
   
   # get players' seeding in tournament from first (two) table(s)
-  seed_m <- data.frame(player = character(0), seed = character(0))
-  seed_w <- data.frame(player = character(0), seed = character(0))
+  # and players' country from "alt" attr in flag img from html file using rvest
+  seed_country_m <- data.frame(player = character(0), seed = character(0))
+  seed_country_w <- data.frame(player = character(0), seed = character(0))
   n_players_m <- 0
   n_players_w <- 0
   
+  # load from html file
+  html <- xml2::read_html(paste0("rawdata/tournaments/html/", filename, ".html"))
+  
   if (men) {
+    # get seeding
     table_i <- table_i + 1
     entries <- tables[[table_i]]$V3
     n_players_m <- length(entries)
@@ -111,10 +118,18 @@ extractResults <- function(filename, df) {
         player <- entries[i]
         seed <- "unseeded"
       }
-      seed_m <- rbind(seed_m, list(player=player, seed=seed))
+      seed_country_m <- rbind(seed_country_m, list(player=player, seed=seed))
     }
+    
+    # get countries
+    countries <- html %>%
+      html_nodes('.men .flag') %>%
+      html_attr(name = "alt")
+    seed_country_m$country = countries
+    
   }
   if (women) {
+    # get seeding
     table_i <- table_i + 1
     entries <- tables[[table_i]]$V3
     n_players_w <- length(entries)
@@ -126,22 +141,28 @@ extractResults <- function(filename, df) {
         player <- entries[i]
         seed <- "unseeded"
       }
-      seed_w <- rbind(seed_w, list(player=player, seed=seed))
+      seed_country_w <- rbind(seed_country_w, list(player=player, seed=seed))
     }
+    
+    # get countries
+    countries <- html %>%
+      html_nodes('.women .flag') %>%
+      html_attr(name = "alt")
+    seed_country_w$country = countries
   }
-  
   
   # get matches results round by round
   if (men) {
     matches_m <- data.frame(round = character(0), gender = character(0), 
                             player1 = character(0), player2 = character(0), 
+                            p1_country = character(0), p2_country = character(0), 
+                            p1_seed = character(0), p2_seed = character(0), 
                             p1_sets_won = numeric(0), p2_sets_won = numeric(0), 
                             p1_set1_score = numeric(0), p1_set2_score = numeric(0), 
                             p1_set3_score = numeric(0), p1_set4_score = numeric(0), 
                             p1_set5_score = numeric(0), p2_set1_score = numeric(0), 
                             p2_set2_score = numeric(0), p2_set3_score = numeric(0), 
                             p2_set4_score = numeric(0), p2_set5_score = numeric(0), 
-                            p1_seed = character(0), p2_seed = character(0), 
                             date_of_match = character(0))
     
     # get the number of rounds based on number of players
@@ -164,7 +185,8 @@ extractResults <- function(filename, df) {
         p1_set3_score <- p1$V6
         p1_set4_score <- p1$V7
         p1_set5_score <- p1$V8
-        p1_seed <- seed_m$seed[seed_m$player == player1]
+        p1_seed <- seed_country_m$seed[seed_country_m$player == player1]
+        p1_country <- seed_country_m$country[seed_country_m$player == player1]
         
         p2 <- round[3*j + 3,]
         player2 <- p2$V1
@@ -175,19 +197,21 @@ extractResults <- function(filename, df) {
         p2_set3_score <- p2$V6
         p2_set4_score <- p2$V7
         p2_set5_score <- p2$V8
-        p2_seed <- seed_m$seed[seed_m$player == player2]
+        p2_seed <- seed_country_m$seed[seed_country_m$player == player2]
+        p2_country <- seed_country_m$country[seed_country_m$player == player2]
         
         # add to data frame
         matches_m <- rbind(matches_m, 
                            list(round = round_names[i], gender = "m",
                                 player1 = player1, player2 = player2, 
+                                p1_country = p1_country, p2_country = p2_country, 
+                                p1_seed = p1_seed, p2_seed = p2_seed, 
                                 p1_sets_won = p1_sets_won, p2_sets_won = p2_sets_won, 
                                 p1_set1_score = p1_set1_score, p1_set2_score = p1_set2_score, 
                                 p1_set3_score = p1_set3_score, p1_set4_score = p1_set4_score, 
                                 p1_set5_score = p1_set5_score, p2_set1_score = p2_set1_score, 
                                 p2_set2_score = p2_set2_score, p2_set3_score = p2_set3_score, 
                                 p2_set4_score = p2_set4_score, p2_set5_score = p2_set5_score, 
-                                p1_seed = p1_seed, p2_seed = p2_seed, 
                                 date_of_match = date_of_match))
       }
     }
@@ -206,13 +230,14 @@ extractResults <- function(filename, df) {
   if (women) {
     matches_w <- data.frame(round = character(0), gender = character(0), 
                             player1 = character(0), player2 = character(0), 
+                            p1_country = character(0), p2_country = character(0), 
+                            p1_seed = character(0), p2_seed = character(0), 
                             p1_sets_won = numeric(0), p2_sets_won = numeric(0), 
                             p1_set1_score = numeric(0), p1_set2_score = numeric(0), 
                             p1_set3_score = numeric(0), p1_set4_score = numeric(0), 
                             p1_set5_score = numeric(0), p2_set1_score = numeric(0), 
                             p2_set2_score = numeric(0), p2_set3_score = numeric(0), 
                             p2_set4_score = numeric(0), p2_set5_score = numeric(0), 
-                            p1_seed = character(0), p2_seed = character(0), 
                             date_of_match = character(0))
     n_rounds <- ceiling(log2(n_players_w))
     for (i in 1:n_rounds) {
@@ -231,7 +256,8 @@ extractResults <- function(filename, df) {
         p1_set3_score <- p1$V6
         p1_set4_score <- p1$V7
         p1_set5_score <- p1$V8
-        p1_seed <- seed_w$seed[seed_w$player == player1]
+        p1_seed <- seed_country_w$seed[seed_country_w$player == player1]
+        p1_country <- seed_country_w$country[seed_country_w$player == player1]
         
         p2 <- round[3*j + 3,]
         player2 <- p2$V1
@@ -242,19 +268,22 @@ extractResults <- function(filename, df) {
         p2_set3_score <- p2$V6
         p2_set4_score <- p2$V7
         p2_set5_score <- p2$V8
-        p2_seed <- seed_w$seed[seed_w$player == player2]
+        p2_seed <- seed_country_w$seed[seed_country_w$player == player2]
+        p2_country <- seed_country_w$country[seed_country_w$player == player2]
         
         # add to data frame
         matches_w <- rbind(matches_w, 
                            list(round = round_names[i], gender = "w",
                                 player1 = player1, player2 = player2, 
+                                p1_seed = p1_seed, p2_seed = p2_seed, 
+                                p1_country = p1_country, p2_country = p2_country, 
                                 p1_sets_won = p1_sets_won, p2_sets_won = p2_sets_won, 
                                 p1_set1_score = p1_set1_score, p1_set2_score = p1_set2_score, 
                                 p1_set3_score = p1_set3_score, p1_set4_score = p1_set4_score, 
                                 p1_set5_score = p1_set5_score, p2_set1_score = p2_set1_score, 
                                 p2_set2_score = p2_set2_score, p2_set3_score = p2_set3_score, 
                                 p2_set4_score = p2_set4_score, p2_set5_score = p2_set5_score, 
-                                p1_seed = p1_seed, p2_seed = p2_seed, date_of_match = date_of_match))
+                                date_of_match = date_of_match))
       }
     }
     table_i <- table_i + n_rounds
@@ -273,23 +302,23 @@ extractResults <- function(filename, df) {
 
 df <- data.frame(round = character(0), gender = character(0), 
                  player1 = character(0), player2 = character(0), 
+                 p1_seed = character(0), p2_seed = character(0), 
+                 p1_country = character(0), p2_country = character(0), 
                  p1_sets_won = numeric(0), p2_sets_won = numeric(0), 
                  p1_set1_score = numeric(0), p1_set2_score = numeric(0), 
                  p1_set3_score = numeric(0), p1_set4_score = numeric(0), 
                  p1_set5_score = numeric(0), p2_set1_score = numeric(0), 
                  p2_set2_score = numeric(0), p2_set3_score = numeric(0), 
                  p2_set4_score = numeric(0), p2_set5_score = numeric(0), 
-                 p1_seed = character(0), p2_seed = character(0), 
                  date_of_match = character(0), tournament = character(0),
                  dates = character(0), location = character(0), 
                  prize_money_tier = character(0))
 
-filenames <- list.files('rawdata/tournaments/')
+filenames <- list.files('rawdata/tournaments/rds/')
 for (i in 1:length(filenames)) {
-  df <- extractResults(filenames[i], df)
+  df <- extractResults(gsub(".rds", "", filenames[i]), df)
 }
 
 write.csv(df, file="data/squash.csv")
-
 
 
