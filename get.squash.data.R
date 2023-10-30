@@ -33,7 +33,6 @@ for (i in 1:3) {
   html = scan(url, what='', sep='\n')
   filename = gsub("https://www.psaworldtour.com/tournament/(.+)/", "\\1", url)
   saveRDS(html, file=paste0('rawdata/tournaments/rds/', filename, '.rds'))
-  writeLines(html, paste0('rawdata/tournaments/html/', filename, '.html'))
   
   ## put in a short pause so the site doesn't hate us
   Sys.sleep(runif(1, min=.5, max=5)) 
@@ -52,6 +51,10 @@ extractResults <- function(filename, df) {
   
   # load from rds file
   file <- readRDS(paste0("rawdata/tournaments/rds/", filename, ".rds"))
+  # write as html to be compatible with rvest
+  writeLines(file, paste0('rawdata/tournaments/html/', filename, '.html'))
+  # load from html file
+  html <- xml2::read_html(paste0("rawdata/tournaments/html/", filename, ".html"))
   
   # tournament name
   name <- file[grepl('h1 style=\"font-size: 3em;\"', file)]
@@ -100,9 +103,6 @@ extractResults <- function(filename, df) {
   seed_country_w <- data.frame(player = character(0), seed = character(0))
   n_players_m <- 0
   n_players_w <- 0
-  
-  # load from html file
-  html <- xml2::read_html(paste0("rawdata/tournaments/html/", filename, ".html"))
   
   if (men) {
     # get seeding
@@ -297,6 +297,10 @@ extractResults <- function(filename, df) {
     # add to main data frame
     df <- rbind(df, matches_w)
   }
+  
+  # delete html file to save storage
+  file.remove(paste0("rawdata/tournaments/html/", filename, ".html"))
+  
   return(df)
 }
 
