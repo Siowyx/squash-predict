@@ -15,7 +15,10 @@ driver.get("https://www.psaworldtour.com/tournaments/")
 
 driver.implicitly_wait(10)
 
-for season in ["2022-2023", "2021-2022", "2020-2021", "2019-2020", "2018-2019"]:
+seasons = [str(x) + "-" + str(x+1) for x in range(2022, 1991, -1)] + ["1986-1987", "1983-1984"]
+
+
+for season in seasons:
     season_selector = Select(driver.find_element(By.CLASS_NAME, "select"))
     season_selector.select_by_value(season)
 
