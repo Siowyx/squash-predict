@@ -122,10 +122,10 @@ fit_logistic_model_for_game_win_prob <- function(df, seasons) {
 
 
 
-df <- read.csv("data/cleaned_squash.csv")
-df <- subset(df, select = -X)
-
-seasons <- ("2023-2024")
+# df <- read.csv("data/cleaned_squash.csv")
+# df <- subset(df, select = -X)
+# 
+# seasons <- ("2023-2024")
 # models <- fit_logistic_model_for_game_win_prob(df, seasons)
 # model_m <- models[[1]]
 # model_w <- models[[2]]
@@ -163,20 +163,63 @@ predict_game_win_prob <- function(model, p1, p2) {
 }
 
 
-models <- readRDS("models/model_game_win_2023-2024.rds")
-model_m <- models[[1]]
-model_w <- models[[2]]
+# models <- readRDS("models/model_game_win_2023-2024.rds")
+# model_m <- models[[1]]
+# model_w <- models[[2]]
+# 
+# # probabilities don't sum up to 1
+# predict_game_win_prob(model_m, "Ali Farag", "Mostafa Asal")
+# predict_game_win_prob(model_m, "Mostafa Asal", "Ali Farag")
+# 
+# predict_game_win_prob(model_m, "Paul Coll", "Mostafa Asal")
+# predict_game_win_prob(model_m, "Mostafa Asal", "Paul Coll")
+# 
+# predict_game_win_prob(model_w, "Nouran Gohar", "Amanda Sobhy")
+# predict_game_win_prob(model_w, "Amanda Sobhy", "Nouran Gohar")
 
-# probabilities don't sum up to 1
-predict_game_win_prob(model_m, "Ali Farag", "Mostafa Asal")
-predict_game_win_prob(model_m, "Mostafa Asal", "Ali Farag")
 
-predict_game_win_prob(model_m, "Paul Coll", "Mostafa Asal")
-predict_game_win_prob(model_m, "Mostafa Asal", "Paul Coll")
+gaussian_matrix <- function(win_prob) {
+  lose_prob <- 1-win_prob
+  
+  scores <- factor(c("0-0", "1-0", "0-1", "2-0", "1-1", "0-2", "3-0", "2-1", "1-2", "0-3", 
+                     "3-1", "2-2", "1-3", "3-2", "2-3"))
+  m <- matrix(nrow = 15, ncol = 15)
+  rownames(m) <- scores
+  colnames(m) <- scores
+  
+  for (score in scores) {
+    s <- unlist(strsplit(score, "-"))
+    if (as.numeric(s[1]) == 3 | as.numeric(s[2]) == 3) next
+    win_s <- paste0(as.character(as.numeric(s[1]) + 1), "-", s[2])
+    lose_s <- paste0(s[1], "-", as.character(as.numeric(s[2]) + 1))
+    m[score, win_s] <- win_prob
+    m[score, lose_s] <- lose_prob
+  }
+  
+  m["3-0", "3-0"] <- 1
+  m["0-3", "0-3"] <- 1
+  m["3-1", "3-1"] <- 1
+  m["1-3", "1-3"] <- 1
+  m["3-2", "3-2"] <- 1
+  m["2-3", "2-3"] <- 1
+  
+  m[is.na(m)] <- 0
+  
+  return(m)
+}
 
-predict_game_win_prob(model_w, "Nouran Gohar", "Amanda Sobhy")
-predict_game_win_prob(model_w, "Amanda Sobhy", "Nouran Gohar")
+predict_score_prob <- function(model, player1, player2, p1_set_won, p2_set_won) {
+  win_prob <- predict_game_win_prob(model, player1, player2)
+  m <- gaussian_matrix(win_prob)
+  
+  score_prob <- rep(0, 15)
+  score_prob[which(rownames(m) == paste0(p1_set_won, "-", p2_set_won))] = 1
+  for (i in (p1_set_won+p2_set_won):5) {
+    score_prob <- score_prob %*% m
+  }
+  return(score_prob)
+}
 
-
+# predict_score_prob(model_m, "Ali Farag", "Mostafa Asal", 0, 1)
 
 

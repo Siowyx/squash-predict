@@ -3,11 +3,11 @@ library(dplyr)
 
 
 # pre load all models
-# models1 <- readRDS("models/model_dynamic2023-2024.rds")
-# models2 <- readRDS("models/model_dynamic2022-2024.rds")
-# models3 <- readRDS("models/model_dynamic2021-2024.rds")
-models4 <- readRDS("models/model_dynamic2020-2024.rds")
-models5 <- readRDS("models/model_dynamic2019-2024.rds")
+models1 <- readRDS("models/model_game_win_2023-2024.rds")
+models2 <- readRDS("models/model_game_win_2022-2024.rds")
+models3 <- readRDS("models/model_game_win_2021-2024.rds")
+models4 <- readRDS("models/model_game_win_2020-2024.rds")
+models5 <- readRDS("models/model_game_win_2019-2024.rds")
 
 # predict function from fit.model3.R
 predict_dynamic_win_prob <- function(model, p1, p2, p1_sets_won, p2_sets_won) {
