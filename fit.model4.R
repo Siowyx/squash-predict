@@ -126,25 +126,56 @@ df <- read.csv("data/cleaned_squash.csv")
 df <- subset(df, select = -X)
 
 seasons <- ("2023-2024")
-models <- fit_logistic_model_for_game_win_prob(df, seasons)
-model_m <- models[[1]]
-model_w <- models[[2]]
-summary(model_m)
-summary(model_w)
+# models <- fit_logistic_model_for_game_win_prob(df, seasons)
+# model_m <- models[[1]]
+# model_w <- models[[2]]
+# summary(model_m)
+# summary(model_w)
 
 
-# fit and save models up to 5 past seasons
-for (i in 2019:2023) {
-  seasons <- c()
-  for (j in i:2023) {
-    seasons <- c(seasons, paste0(as.character(j), "-", as.character(j+1)))
-  }
-  print(seasons)
+# # fit and save models up to 5 past seasons
+# for (i in 2019:2023) {
+#   seasons <- c()
+#   for (j in i:2023) {
+#     seasons <- c(seasons, paste0(as.character(j), "-", as.character(j+1)))
+#   }
+#   print(seasons)
+#   
+#   models <- fit_logistic_model_for_game_win_prob(df, seasons)
+#   saveRDS(models, paste0("models/model_game_win_", as.character(i), "-2024.rds"))
+# }
+
+
+predict_game_win_prob <- function(model, p1, p2) {
+  all_players <- gsub("`", "", names(coefficients(model))[-1])
+
+  new_data <- data.frame(matrix(ncol = length(all_players), nrow = 1))
+  colnames(new_data) <- all_players
   
-  models <- fit_logistic_model_for_game_win_prob(df, seasons)
-  saveRDS(models, paste0("models/model_game_win_", as.character(i), "-2024.rds"))
+  coef <- rep(0, length(all_players))
+  coef[which(all_players == p1)] <- 1
+  coef[which(all_players == p2)] <- -1
+  new_data[1,] <- coef
+  
+  win_prob <- predict(model, newdata = new_data, type = "response")
+  
+  return(win_prob[[1]])
 }
 
+
+models <- readRDS("models/model_game_win_2023-2024.rds")
+model_m <- models[[1]]
+model_w <- models[[2]]
+
+# probabilities don't sum up to 1
+predict_game_win_prob(model_m, "Ali Farag", "Mostafa Asal")
+predict_game_win_prob(model_m, "Mostafa Asal", "Ali Farag")
+
+predict_game_win_prob(model_m, "Paul Coll", "Mostafa Asal")
+predict_game_win_prob(model_m, "Mostafa Asal", "Paul Coll")
+
+predict_game_win_prob(model_w, "Nouran Gohar", "Amanda Sobhy")
+predict_game_win_prob(model_w, "Amanda Sobhy", "Nouran Gohar")
 
 
 
