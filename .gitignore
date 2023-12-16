@@ -54,3 +54,4 @@ venv/
 # data and rawdata folders
 data/
 rawdata/
+models/
