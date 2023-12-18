@@ -60,7 +60,7 @@ fit_logistic_model_for_dynamic_win_prob <- function(df, seasons) {
       }
     }
   }
-  colnames(d_m) <- c(all_players_m, 'p1_sets_won', 'p2_sets_won', 'p1_win')    #heerrree
+  colnames(d_m) <- c(all_players_m, 'p1_sets_won', 'p2_sets_won', 'p1_win')
   
   # women
   df2_w <- df2[df2$gender == 'w',]

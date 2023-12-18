@@ -4,9 +4,6 @@ library(dplyr)
 library(tidyverse)
 library(lme4)
 
-# one row per game
-# markov transition matrix or a tree to calculate win probability using game win prob
-# dist final score     top 20 coef w std err
 
 fit_logistic_model_for_game_win_prob <- function(df, seasons) {
   df2 <- df %>%
@@ -31,7 +28,7 @@ fit_logistic_model_for_game_win_prob <- function(df, seasons) {
   
   # create a new data frame with player coefficient matrix, p1_set_win
   # player1 = 1, player2 = -1, else 0
-
+  
   # men
   d_m <- df2[df2$gender == 'm',]
   all_players_m <- sort(unique(c(d_m$player1, d_m$player2)))
@@ -59,7 +56,7 @@ fit_logistic_model_for_game_win_prob <- function(df, seasons) {
     d_m[,`player`] <- 0
   }
   d_m <- d_m[, c(all_players_m, "p1_set1_win", "p1_set2_win", "p1_set3_win", "p1_set4_win", "p1_set5_win", 
-                     "player1", "player2")]
+                 "player1", "player2")]
   for (i in 1:nrow(d_m)) {
     d_m[i, which(all_players_m == d_m[i,]$player1)] <- 1
     d_m[i, which(all_players_m == d_m[i,]$player2)] <- -1
@@ -119,37 +116,10 @@ fit_logistic_model_for_game_win_prob <- function(df, seasons) {
   return(list(model_m, model_w))
 }
 
-
-
-
-df <- read.csv("data/cleaned_squash.csv")
-df <- subset(df, select = -X)
-
-seasons <- ("2023-2024")
-# models <- fit_logistic_model_for_game_win_prob(df, seasons)
-# model_m <- models[[1]]
-# model_w <- models[[2]]
-# summary(model_m)
-# summary(model_w)
-
-
-# # fit and save models up to 5 past seasons
-# for (i in 2019:2023) {
-#   seasons <- c()
-#   for (j in i:2023) {
-#     seasons <- c(seasons, paste0(as.character(j), "-", as.character(j+1)))
-#   }
-#   print(seasons)
-# 
-#   models <- fit_logistic_model_for_game_win_prob(df, seasons)
-#   saveRDS(models, paste0("models/model_game_win_", as.character(i), "-2024.rds"))
-# }
-
-
 predict_game_win_prob <- function(model, p1, p2) {
   all_players <- gsub("`", "", names(coefficients(model)))
   all_players[1] <- "Others"
-
+  
   new_data <- data.frame(matrix(ncol = length(all_players), nrow = 1))
   colnames(new_data) <- all_players
   
@@ -162,22 +132,6 @@ predict_game_win_prob <- function(model, p1, p2) {
   
   return(win_prob[[1]])
 }
-
-
-models <- readRDS("models/model_game_win_2019-2024.rds")
-model_m <- models[[1]]
-model_w <- models[[2]]
-
-# probabilities don't sum up to 1
-predict_game_win_prob(model_m, "Ali Farag", "Mostafa Asal")
-predict_game_win_prob(model_m, "Mostafa Asal", "Ali Farag")
-
-predict_game_win_prob(model_m, "Paul Coll", "Mostafa Asal")
-predict_game_win_prob(model_m, "Mostafa Asal", "Paul Coll")
-
-predict_game_win_prob(model_w, "Nouran Gohar", "Amanda Sobhy")
-predict_game_win_prob(model_w, "Amanda Sobhy", "Nouran Gohar")
-
 
 markov_transition_matrix <- function(win_prob) {
   lose_prob <- 1-win_prob
@@ -221,6 +175,5 @@ predict_score_prob <- function(model, player1, player2, p1_set_won, p2_set_won) 
   return(score_prob)
 }
 
-predict_score_prob(model_m, "Ali Farag", "Mostafa Asal", 0, 1)
 
 
