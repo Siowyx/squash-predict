@@ -68,7 +68,7 @@ fit_logistic_model_for_dynamic_win_prob <- function(df, seasons) {
 
   d_w <- data.frame(matrix(nrow = 0, ncol = length(all_players_w) + 3))
   for (i in 1:nrow(df2_w)) {
-    print(paste0(i, "/", nrow(df2_m)))
+    print(paste0(i, "/", nrow(df2_w)))
     
     coef <- rep(0, length(all_players_w))
     coef[which(all_players_w == df2_w[i,]$player1)] <- 1
@@ -173,5 +173,7 @@ predict_dynamic_win_prob(model_dynamic_m, "Ali Farag", "Ong Sai Hung", 0, 3)
 predict_dynamic_win_prob(model_dynamic_m, "Ong Sai Hung", "Ali Farag", 3, 0)
 
 predict_dynamic_win_prob(model_dynamic_w, "Nouran Gohar", "Amanda Sobhy", 0, 0)
+
+
 
 

@@ -224,3 +224,203 @@ predict_score_prob <- function(model, player1, player2, p1_set_won, p2_set_won) 
 predict_score_prob(model_m, "Ali Farag", "Mostafa Asal", 0, 1)
 
 
+
+
+
+
+## compare 2023-24 models
+models1 <- readRDS("models/model2023-2024.rds")
+model_m1 <- models1[[1]]
+model_w1 <- models1[[2]]
+models2 <- readRDS("models/model_dynamic2023-2024.rds")
+model_m2 <- models2[[1]]
+model_w2 <- models2[[2]]
+models3 <- readRDS("models/model_game_win_2023-2024.rds")
+model_m3 <- models3[[1]]
+model_w3 <- models3[[2]]
+
+summary(model_m1)
+summary(model_m2)
+summary(model_m3)
+
+summary(model_w1)
+summary(model_w2)
+summary(model_w3)
+
+
+# hard to compare with models fitting different data
+# check coefficients
+
+library(ggplot2)
+library(pubtheme)
+dg1 = summary(model_m1)$coefficients %>% 
+  as.data.frame() %>%
+  rownames_to_column(var = 'var') %>%
+  rename(coef=Estimate, se=`Std. Error`) %>%
+  select(var, coef, se) %>%
+  mutate(var = gsub('`', '', gsub('[(]|[)]', '', var))) %>%
+  filter(var!='INTERCEPT') %>%
+  arrange(desc(coef))
+
+levels1 <- rev(dg1[1:10,]$var)
+g1 = ggplot(dg1[1:10,], aes(x=coef, y=factor(dg1[1:10,]$var, levels = levels1)))+
+  geom_segment(aes(x    = coef-se, 
+                   xend = coef+se,
+                   y    = factor(dg1[1:10,]$var, levels = levels1), 
+                   yend = factor(dg1[1:10,]$var, levels = levels1)), color=pubred)+
+  geom_point(color=pubred) +
+  labs(title    = "Male Players with the Largest Coefficients for 2023-24 Season",
+       subtitle = 'Model 1: Match Win Probability',
+       x = 'Coefficients with 1 Standard Deviation', 
+       y = NULL)  ## Optional. 
+
+g1 %>% 
+  pub(type = 'pop', 
+      xlim = c(10, 25))
+
+dg2 = summary(model_m2)$coefficients %>% 
+  as.data.frame() %>%
+  rownames_to_column(var = 'var') %>%
+  rename(coef=Estimate, se=`Std. Error`) %>%
+  select(var, coef, se) %>%
+  mutate(var = gsub('`', '', gsub('[(]|[)]', '', var))) %>%
+  filter(var!='INTERCEPT') %>%
+  arrange(desc(coef))
+
+levels2 <- rev(dg2[1:10,]$var)
+g2 = ggplot(dg2[1:10,], aes(x=coef, y=factor(dg2[1:10,]$var, levels = levels2)))+
+  geom_segment(aes(x    = coef-se, 
+                   xend = coef+se,
+                   y    = factor(dg2[1:10,]$var, levels = levels2), 
+                   yend = factor(dg2[1:10,]$var, levels = levels2)), color=pubred)+
+  geom_point(color=pubred) +
+  labs(title    = "Male Players with the Largest Coefficients for 2023-24 Season",
+       subtitle = 'Model 2: Match Win Probability with Current Scores',
+       x = 'Coefficients with 1 Standard Deviation', 
+       y = NULL)  ## Optional. 
+
+g2 %>% 
+  pub(type = 'pop', 
+      xlim = c(10, 25))
+
+dg3 = summary(model_m3)$coefficients %>% 
+  as.data.frame() %>%
+  rownames_to_column(var = 'var') %>%
+  rename(coef=Estimate, se=`Std. Error`) %>%
+  select(var, coef, se) %>%
+  mutate(var = gsub('`', '', gsub('[(]|[)]', '', var))) %>%
+  filter(var!='INTERCEPT') %>%
+  arrange(desc(coef))
+
+levels3 <- rev(dg3[1:10,]$var)
+g3 = ggplot(dg3[1:10,], aes(x=coef, y=factor(dg3[1:10,]$var, levels = levels3)))+
+  geom_segment(aes(x    = coef-se, 
+                   xend = coef+se,
+                   y    = factor(dg3[1:10,]$var, levels = levels3), 
+                   yend = factor(dg3[1:10,]$var, levels = levels3)), color=pubred)+
+  geom_point(color=pubred) +
+  labs(title    = "Male Players with the Largest Coefficients for 2023-24 Season",
+       subtitle = 'Model 3: Game Win Probability',
+       x = 'Coefficients with 1 Standard Deviation', 
+       y = NULL)  ## Optional. 
+
+g3 %>% 
+  pub(type = 'pop', 
+      xlim = c(5, 10))
+
+
+# check predicted match win probability and std err
+p1 <- "Ali Farag"
+p2 <- "Paul Coll"
+
+# model 1
+all_players <- gsub("`", "", names(coefficients(model_m1))[-1])
+new_data <- data.frame(matrix(ncol = length(all_players), nrow = 1))
+colnames(new_data) <- all_players
+coef <- rep(0, length(all_players))
+coef[which(all_players == p1)] <- 1
+coef[which(all_players == p2)] <- -1
+new_data[1,] <- coef
+win_prob1 <- predict(model_m1, newdata = new_data, se.fit = T, type = "response")
+
+# model 2
+all_players <- gsub("`", "", names(coefficients(model_m2))[-1])
+all_players <- all_players[all_players != "p1_sets_won" & all_players != "p2_sets_won"]
+new_data <- data.frame(matrix(ncol = length(all_players) + 2, nrow = 1))
+colnames(new_data) <- c(all_players, 'p1_sets_won', 'p2_sets_won')
+coef <- rep(0, length(all_players))
+coef[which(all_players == p1)] <- 1
+coef[which(all_players == p2)] <- -1
+new_data[1,] <- c(coef, 0, 0)
+win_prob2 <- predict(model_m2, newdata = new_data, se.fit = T, type = "response")
+
+# model 3
+all_players <- gsub("`", "", names(coefficients(model_m3)))
+all_players[1] <- "Others"
+new_data <- data.frame(matrix(ncol = length(all_players), nrow = 1))
+colnames(new_data) <- all_players
+coef <- rep(0, length(all_players))
+coef[which(all_players == p1)] <- 1
+coef[which(all_players == p2)] <- -1
+new_data[1,] <- coef
+game_win_prob <- predict(model_m3, newdata = new_data, se.fit = T, type = "response")
+
+# m0 <- markov_transition_matrix(game_win_prob$fit)
+# score_prob0 <- rep(0, 15)
+# score_prob0[which(rownames(m0) == "0-0")] = 1
+# for (i in 0:5) {
+#   score_prob0 <- score_prob0 %*% m0
+# }
+# win_prob3 <- sum(score_prob0[1, c("3-0", "3-1", "3-2")])
+# 
+# m1 <- markov_transition_matrix(game_win_prob$fit - game_win_prob$se.fit)
+# score_prob1 <- rep(0, 15)
+# score_prob1[which(rownames(m1) == "0-0")] = 1
+# for (i in 0:5) {
+#   score_prob1 <- score_prob1 %*% m1
+# }
+# win_prob3_se1 <- sum(score_prob1[1, c("3-0", "3-1", "3-2")])
+# 
+# m2 <- markov_transition_matrix(game_win_prob$fit + game_win_prob$se.fit)
+# score_prob2 <- rep(0, 15)
+# score_prob2[which(rownames(m2) == "0-0")] = 1
+# for (i in 0:5) {
+#   score_prob2 <- score_prob2 %*% m2
+# }
+# win_prob3_se2 <- sum(score_prob2[1, c("3-0", "3-1", "3-2")])
+# 
+# win_prob3_se2 - win_prob3
+# win_prob3 - win_prob3_se1
+
+# plot and compare
+models <- c("Model 1", "Model 2", "Model 3*")
+prob <- c(win_prob1$fit, win_prob2$fit, game_win_prob$fit)*100
+low <- c(win_prob1$fit - win_prob1$se.fit, win_prob2$fit - win_prob2$se.fit, game_win_prob$fit - game_win_prob$se.fit)*100
+high <- c(win_prob1$fit + win_prob1$se.fit, win_prob2$fit + win_prob2$se.fit, game_win_prob$fit + game_win_prob$se.fit)*100
+dd <- data.frame(models, prob, low, high)
+
+gg = ggplot(dd, aes(x=prob, y=factor(models, levels = rev(models))))+
+  geom_segment(aes(x    = low, 
+                   xend = high,
+                   y    = factor(models, levels = rev(models)), 
+                   yend = factor(models, levels = rev(models))), color=pubred)+
+  geom_text(aes(x=prob, label=round(prob,2)), vjust=-1)+
+  geom_text(aes(x=low,  label=round(low ,2)), hjust=1.1)+
+  geom_text(aes(x=high, label=round(high,2)), hjust=-0.2)+
+  geom_point(color=pubred) +
+  labs(title    = "Ali Farg vs Paul Coll",
+       subtitle = 'Match Win Probabilities with 1 Standard Deviation',
+       captions = "*Model 3 predicts game win probability",
+       x = 'Probability (%)', 
+       y = NULL)  ## Optional. 
+
+gg %>% 
+  pub(type = 'pop', 
+      xlim = c(50, 100))
+ 
+
+
+
+
+
+
